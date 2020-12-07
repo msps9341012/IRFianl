@@ -1,0 +1,218 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "「Intermediate」的副本",
+      "provenance": [],
+      "collapsed_sections": [],
+      "machine_shape": "hm"
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "accelerator": "TPU"
+  },
+  "cells": [
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "fgP56mT3jY6r"
+      },
+      "source": [
+        "!pip install tensorflow==1.14.0"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Urv_yPPcjjos"
+      },
+      "source": [
+        "!git clone https://github.com/google-research/bert.git"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "xKkdql2O3xSf"
+      },
+      "source": [
+        "import datetime\n",
+        "import json\n",
+        "import os\n",
+        "import pprint\n",
+        "import random\n",
+        "import string\n",
+        "import sys\n",
+        "import tensorflow as tf\n",
+        "\n",
+        "assert 'COLAB_TPU_ADDR' in os.environ, 'ERROR: Not connected to a TPU runtime; please see the first cell in this notebook for instructions!'\n",
+        "TPU_ADDRESS = 'grpc://' + os.environ['COLAB_TPU_ADDR']\n",
+        "print('TPU address is', TPU_ADDRESS)\n",
+        "\n",
+        "from google.colab import auth\n",
+        "auth.authenticate_user()\n",
+        "with tf.Session(TPU_ADDRESS) as session:\n",
+        "  print('TPU devices:')\n",
+        "  pprint.pprint(session.list_devices())\n",
+        "\n",
+        "  # Upload credentials to TPU.\n",
+        "  with open('/content/adc.json', 'r') as f:\n",
+        "    auth_info = json.load(f)\n",
+        "  tf.contrib.cloud.configure_gcs(session, credentials=auth_info)\n",
+        "  # Now credentials are set for all future sessions on this TPU."
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "T4vY0sWD4aug",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "76246531-6024-4e3b-8696-0cf580ea27bf"
+      },
+      "source": [
+        "TASK = 'MNLI' #@param {type:\"string\"}\n",
+        "\n",
+        "# Download glue data.\n",
+        "! test -d download_glue_repo || git clone https://gist.github.com/60c2bdb54d156a41194446737ce03e2e.git download_glue_repo\n",
+        "!python download_glue_repo/download_glue_data.py --data_dir='glue_data' --tasks=$TASK\n",
+        "\n",
+        "TASK_DATA_DIR = 'glue_data/' + TASK\n",
+        "print('***** Task data directory: {} *****'.format(TASK_DATA_DIR))\n",
+        "!ls $TASK_DATA_DIR"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Cloning into 'download_glue_repo'...\n",
+            "remote: Enumerating objects: 21, done.\u001b[K\n",
+            "remote: Total 21 (delta 0), reused 0 (delta 0), pack-reused 21\u001b[K\n",
+            "Unpacking objects: 100% (21/21), done.\n",
+            "Downloading and extracting MNLI...\n",
+            "\tCompleted!\n",
+            "***** Task data directory: glue_data/MNLI *****\n",
+            "dev_matched.tsv     original\ttest_matched.tsv     train.tsv\n",
+            "dev_mismatched.tsv  README.txt\ttest_mismatched.tsv\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "hn5apyQg4BgY",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "b7bcaa2a-6f48-4ca3-b8e3-a6a3c6c8f629"
+      },
+      "source": [
+        "BUCKET = 'irproject_bert2' #@param {type:\"string\"}\n",
+        "assert BUCKET, 'Must specify an existing GCS bucket name'\n",
+        "OUTPUT_DIR = 'gs://{}/my_output_dir/models/{}'.format(BUCKET, TASK)\n",
+        "tf.gfile.MakeDirs(OUTPUT_DIR)\n",
+        "print('***** Model output directory: {} *****'.format(OUTPUT_DIR))\n",
+        "\n",
+        "# Available pretrained model checkpoints:\n",
+        "#   uncased_L-12_H-768_A-12: uncased BERT base model\n",
+        "#   uncased_L-24_H-1024_A-16: uncased BERT large model\n",
+        "#   cased_L-12_H-768_A-12: cased BERT large model\n",
+        "#BERT_MODEL = 'uncased_L-12_H-768_A-12' #@param {type:\"string\"}\n",
+        "#BERT_MODEL_HUB = 'https://tfhub.dev/google/bert_' + BERT_MODEL + '/1'"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "***** Model output directory: gs://irproject_bert2/my_output_dir/models/QNLI *****\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "EmNc5i7IZ9ed"
+      },
+      "source": [
+        "OUTPUT_DIR = \"gs://irproject_bert2/my_output_dir/models/MNLI\"\n",
+        "tf.gfile.MakeDirs(OUTPUT_DIR)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "he5KCLwyaP3E"
+      },
+      "source": [
+        "BUCKET = 'irproject_bert2'"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "jGBOB_E4sscI"
+      },
+      "source": [
+        "BUCKET_NAME = 'gs://{}'.format(BUCKET)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "aWxoUpUcuyyw"
+      },
+      "source": [
+        "cd bert"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "KQJXHcH87UBu"
+      },
+      "source": [
+        "!python run_classifier.py \\\n",
+        "  --task_name=MNLI \\\n",
+        "  --do_train=true \\\n",
+        "  --do_eval=true \\\n",
+        "  --data_dir=../glue_data/MNLI/ \\\n",
+        "  --vocab_file=$BUCKET_NAME/uncased_L-24_H-1024_A-16/vocab.txt \\\n",
+        "  --bert_config_file=$BUCKET_NAME/uncased_L-24_H-1024_A-16/bert_config.json \\\n",
+        "  --init_checkpoint=$BUCKET_NAME/uncased_L-24_H-1024_A-16/bert_model.ckpt\\\n",
+        "  --max_seq_length=128 \\\n",
+        "  --train_batch_size=32 \\\n",
+        "  --learning_rate=2e-5 \\\n",
+        "  --num_train_epochs=3.0 \\\n",
+        "  --output_dir=$OUTPUT_DIR \\\n",
+        "  --use_tpu=True \\\n",
+        "  --tpu_name=TPU_ADDRESS"
+      ],
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
