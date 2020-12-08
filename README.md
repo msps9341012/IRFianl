@@ -11,3 +11,5 @@
 * Run ReRanking.ipynb and set INIT_CHECKPOINT to the ckpt filename that you get from intermediate task.
 * The code includes training and evaluation on MARCO dev set and TLDR-19 eval set.
 * For TLDR-19, download the predictions and use trec_eval to compute the metrics.
+
+After training all models, run Embedding_Analysis.ipynb to get the embedding plots that is shown in the report.
